@@ -1,0 +1,70 @@
+syntax = "proto3";
+
+package org;
+
+option java_multiple_files = true;
+option java_outer_classname = "WalletProto";
+option go_package = "lastlock.com/proto/walletpb";
+
+import "credential.proto";
+import "google/protobuf/empty.proto";
+
+// A WalletPass is a wallet access credential
+message WalletPass
+{
+	// The unique identifier from the credential provider service for this credential
+	optional string id = 1;
+	// The card template this credential is based on 
+	optional string card_template_id = 2;
+	// this is always created in the format  "org-<org-id>-<employee-id>"
+	optional string employee_id = 3;
+	// Site code for a H10301 formatted credential under 255
+	optional string site_code = 4;
+	// Card number for a H10301 formatted credential under 65,535
+	optional string card_number = 5;
+	// The full name of the person this pass is for - displayed in the wallet pass
+	optional string full_name = 6;
+	// Employment classification e.g full_time, contractor, etc...
+	optional string classification = 7;
+	// Wallet pass validity start date - enables wallet transactions after this time (UTC epoch)
+	optional uint32 start_date = 8;
+	// Wallet pass validity end date - disables wallet transactions after this time (UTC epoch)
+	optional uint32 expiration_date = 9;
+	// The URL for web provisioning that allows adding this pass to a users wallet
+	optional string install_url = 10;
+	// External ID from the issuer
+	optional string ext_id = 11;
+	// The credential type of this wallet pass
+	optional lastlock.api.CredentialType credential_type = 12;
+
+    // The appropriate Org representation of this wallet pass for easy assignment
+    optional lastlock.api.Credential credential = 1000;
+}
+
+message ListWalletPassRequest
+{
+  optional string card_template_id = 1;
+}
+
+message ListWalletPassResponse
+{
+  repeated WalletPass wallet_passes = 1;
+}
+
+message DeleteWalletPassRequest
+{
+  string id = 1;
+}
+
+// Client facing interface for Wallet credentials to Seamless Link
+service Wallet
+{
+  // List Wallet Passes
+  rpc ListWalletPasses(ListWalletPassRequest) returns (ListWalletPassResponse);
+
+  // Create Wallet Passes
+  rpc CreateWalletPasses(WalletPass) returns (ListWalletPassResponse);
+
+  // Delete Wallet Passes
+  rpc DeleteWalletPass(DeleteWalletPassRequest) returns (google.protobuf.Empty);
+}

@@ -1,0 +1,46 @@
+syntax = "proto3";
+
+package lastlock.api.audittypes;
+option go_package = "lastlock.com/proto/audittypespb";
+
+enum AuditType
+{
+  // Reserved for the unknown value
+  UNKNOWN_AUDITTYPE = 0x00;
+
+  // Credential authenticated, lock moved to locked position
+  Lock = 0x01;
+
+  // Credential authenticated, lock moved to unlocked position
+  Unlock = 0x02;
+
+  // Unlock followed by auto re-lock
+  LockCycle = 0x03;
+
+  // Valid credential, access not allowed (any time)
+  UnauthorizedUser = 0x04;
+
+  // Credential could not be parsed
+  InvalidCredential = 0x05;
+
+  // Authorized user, not allowed at current time
+  OutOfSchedule = 0x06;
+
+  // Lock moved to locked position at scheduled time
+  ScheduledLock = 0x07;
+
+  // Lock moved to unlocked position at scheduled time
+  ScheduledUnlock = 0x08;
+
+  // Lock manually locked (thumbturn or shackle close)
+  ManualLock = 0x09;
+
+  // Lock manually unlocked (thumbturn)
+  ManualUnlock = 0x0A;
+  // An unspecified error occurred
+  UnspecifiedError = 0x0B;
+  // The device is low battery
+  LowBattery = 0x0C;
+  // A brownout was detected
+  Brownout = 0x0D;
+}

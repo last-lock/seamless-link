@@ -1,0 +1,95 @@
+syntax = "proto3";
+
+package org;
+
+option java_multiple_files = true;
+option java_outer_classname = "OrgProto";
+option go_package = "lastlock.com/proto/orgpb";
+
+import "audit.proto";
+import "credential.proto";
+import "google/protobuf/empty.proto";
+
+message ListDevicesRequest
+{
+  optional int64 created_at_or_after = 1;
+  repeated uint32 device_ids = 2;
+}
+
+message DeviceSummary
+{
+  // 4 byte access ID
+  optional uint32 device_id = 1;
+
+  // Description of the device
+  optional string desc = 2;
+
+  // Time created
+  optional int64 time_created = 3;
+
+  // Assignments currently
+  optional Credentials credentials = 4;
+
+  // Device's PKOC public key
+  optional bytes pkoc_public_key = 5;
+
+  // Device's Ephemeral public key
+  optional bytes device_ephemeral_key = 6;
+}
+
+message DeviceSummaries
+{
+  repeated DeviceSummary device_summaries = 1;
+}
+
+message ListAuditsRequest
+{
+  optional uint32 server_time_after = 1;
+  optional uint32 server_time_before = 2;
+  repeated uint32 device_ids = 3;
+}
+
+message Audits
+{
+  repeated lastlock.api.ReceivedAudit audits = 1;
+}
+
+message Credentials
+{
+  repeated lastlock.api.Credential credentials = 1;
+}
+
+// Request for the deviceID (key of map)
+// To have exactly the set of credentials in the value
+message AssignmentsRequest
+{
+  map<uint32, Credentials> assignments = 1;
+}
+
+message OrganizationKeys
+{
+  optional bytes pkoc_key = 1;
+}
+
+// Service to communicate with Link
+service Org
+{
+  // List device summaries
+  rpc ListDeviceSummaries(ListDevicesRequest) returns (DeviceSummaries);
+
+  // Stream devices summaries
+  rpc StreamDeviceSummaries(ListDevicesRequest) returns (stream DeviceSummaries);
+
+  // List audits
+  rpc ListAudits(ListAuditsRequest) returns (Audits);
+
+  // Stream audits
+  rpc StreamAudits(ListAuditsRequest) returns (stream lastlock.api.ReceivedAudit);
+
+  // Assign credentials to a device
+  rpc Assign(AssignmentsRequest) returns (google.protobuf.Empty);
+
+  // Set keys for the organization
+  // This needs to be re-called on provision of devices
+  rpc SetOrgKeys(OrganizationKeys) returns (google.protobuf.Empty);
+}

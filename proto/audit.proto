@@ -1,0 +1,28 @@
+syntax = "proto3";
+
+package lastlock.api;
+
+option go_package = "lastlock.com/proto/auditpb";
+
+import "credential.proto";
+import "audit_types.proto";
+
+message Audit
+{
+  optional lastlock.api.audittypes.AuditType audit_type = 1;
+  optional Credential credential = 2;
+  optional uint32 when_device = 3;
+
+  // if inferred_timestamp is true,
+  // when_device is equal to the previous audit,
+  // and is only known to have occurred after that time
+  optional bool inferred_timestamp = 4;
+}
+
+message ReceivedAudit
+{
+  optional uint32 device_id = 1;
+  optional Audit audit = 2;
+  optional uint32 when_server = 3;
+  optional string audit_id = 4;
+}
