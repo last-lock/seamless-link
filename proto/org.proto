@@ -2,18 +2,24 @@ syntax = "proto3";
 
 package org;
 
-option java_multiple_files = true;
-option java_outer_classname = "OrgProto";
 option go_package = "lastlock.com/proto/orgpb";
 
 import "audit.proto";
 import "credential.proto";
+import "statistics.proto";
+import "lockmodes.proto";
 import "google/protobuf/empty.proto";
+import "google/protobuf/descriptor.proto";
 
 message ListDevicesRequest
 {
   optional int64 created_at_or_after = 1;
   repeated uint32 device_ids = 2;
+}
+
+message StreamDeviceUpdatesRequest
+{
+  optional int64 updated_at_or_after = 1;
 }
 
 message DeviceSummary
@@ -35,6 +41,9 @@ message DeviceSummary
 
   // Device's Ephemeral public key
   optional bytes device_ephemeral_key = 6;
+
+  // Device's Configuration
+  optional Configuration configuration = 7;
 }
 
 message DeviceSummaries
@@ -68,7 +77,51 @@ message AssignmentsRequest
 
 message OrganizationKeys
 {
-  optional bytes pkoc_key = 1;
+  optional bytes pkoc_key = 1 [ debug_redact = true ];
+}
+
+message Configuration
+{
+  // IANA standard time zone support
+  // We currently support this list:
+  // - America/New_York: EST5EDT,M3.2.0,M11.1.0
+  // - America/Chicago: CST6CDT,M3.2.0,M11.1.0
+  // - America/Denver: MST7MDT,M3.2.0,M11.1.0
+  // - America/Phoenix: MST7
+  // - America/Los_Angeles: PST8PDT,M3.2.0,M11.1.0
+  // - America/Anchorage: AKST9AKDT,M3.2.0,M11.1.0
+  // - Pacific/Honolulu: HST10
+  // - Etc/UTC: UTC0
+  // - Asia/Tokyo: JST-9
+  // - Europe/London: GMT0BST,M3.5.0/1,M10.5.0
+  // - Europe/Paris: CET-1CEST,M3.5.0,M10.5.0/3
+  optional string time_zone = 1;
+
+  // Set statistics level
+  optional lastlock.api.StatisticsLevel statistics_level = 2;
+}
+
+message Configurations
+{
+  // if a value is not set on a configuration,
+  // we defer to current value or default value.
+  map<uint32, Configuration> configurations = 1;
+}
+
+message DeviceUpdate
+{
+  optional uint32 device_id = 1;
+
+  // if missing, we indicate a deletion
+  optional DeviceSummary summary = 2;
+
+  optional int64 timestamp = 3;
+}
+
+message SetDeviceModeRequest
+{
+  optional uint32 device_id = 1;
+  optional lastlock.api.LockModes modes = 2;
 }
 
 // Service to communicate with Link
@@ -80,6 +133,9 @@ service Org
   // Stream devices summaries
   rpc StreamDeviceSummaries(ListDevicesRequest) returns (stream DeviceSummaries);
 
+  // Stream devices deltas
+  rpc StreamDeviceUpdates(StreamDeviceUpdatesRequest) returns (stream DeviceUpdate);
+
   // List audits
   rpc ListAudits(ListAuditsRequest) returns (Audits);
 
@@ -87,9 +143,16 @@ service Org
   rpc StreamAudits(ListAuditsRequest) returns (stream lastlock.api.ReceivedAudit);
 
   // Assign credentials to a device
+  // Maximum 10,000 credentials may be applied to a given device
+  // Status code exhausted is returned if 10,000 credentials is exceeded
   rpc Assign(AssignmentsRequest) returns (google.protobuf.Empty);
 
   // Set keys for the organization
-  // This needs to be re-called on provision of devices
   rpc SetOrgKeys(OrganizationKeys) returns (google.protobuf.Empty);
+
+  // Set configurations on devices.
+  rpc SetConfiguration(Configurations) returns (google.protobuf.Empty);
+
+  // Temp install mode rpc
+  rpc SendLockMode(SetDeviceModeRequest) returns (google.protobuf.Empty);
 }

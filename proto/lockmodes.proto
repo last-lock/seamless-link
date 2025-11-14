@@ -1,0 +1,17 @@
+syntax = "proto3";
+
+package lastlock.api;
+
+option go_package = "lastlock.com/proto/lockmodespb";
+
+enum MoveType
+{
+  UNKNOWN = 0;
+  ENTER = 1;
+  EXIT = 2;
+}
+
+message LockModes
+{
+  optional MoveType install = 1;
+}

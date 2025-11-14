@@ -1,0 +1,17 @@
+syntax = "proto3";
+
+package lastlock.api;
+
+option go_package = "lastlock.com/proto/statisticspb";
+
+enum StatisticsLevel
+{
+  // A good balance between battery life and data
+  DEFAULT = 0;
+
+  // Get a lot of data
+  HIGH = 1;
+
+  // Don't really care about data
+  LOW = 2;
+}
