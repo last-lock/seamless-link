@@ -1,17 +1,28 @@
 syntax = "proto3";
 
+// Device lock mode settings.
 package lastlock.api;
 
-option go_package = "lastlock.com/proto/lockmodespb";
 
+// MoveType specifies entering or exiting a lock mode.
 enum MoveType
 {
+  // No-op or unknown mode.
   UNKNOWN = 0;
+  // Enter install mode.
   ENTER = 1;
+  // Exit install mode.
   EXIT = 2;
 }
 
+// LockModes describes device mode changes to apply.
 message LockModes
 {
+  // Install mode state to enter or exit.
   optional MoveType install = 1;
+
+  // duration_seconds to be in mode once device receives request
+  // >= 300
+  // if unset defaults to 300
+  optional uint32 duration_seconds = 2;
 }

@@ -2,8 +2,6 @@ syntax = "proto3";
 
 package lastlock.api.audittypes;
 
-option go_package = "lastlock.com/proto/audittypespb";
-
 enum AuditType
 {
   // Reserved for the unknown value

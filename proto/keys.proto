@@ -1,0 +1,63 @@
+syntax = "proto3";
+
+// Key provisioning messages used for device credential keys.
+package lastlock.api.keys;
+
+// Keys for the MIFARE Classic NFC Credential
+message MifareClassicKeys
+{
+  // Read Key
+  optional bytes A_key = 1;
+  // Write Key
+  optional bytes B_key = 2;
+}
+// Keys for an Apple Wallet credential.
+message AppleWallet
+{
+  // Privacy key for transaction
+  bytes privacy_key = 1;
+  // Security/master key to access secure credential information
+  bytes credential_key = 2;
+}
+// Keys for a Google Wallet credential.
+message GoogleWallet
+{
+  // Master key for transaction
+  bytes master_key = 1;
+  // DF-Name from transaction
+  bytes dfname = 2;
+}
+
+// Collection of the different wallet key types
+message WalletKeys
+{
+  oneof WalletType
+  {
+    // Apple Wallet keys.
+    AppleWallet apple_wallet = 4;
+    // Google Wallet keys.
+    GoogleWallet google_wallet = 5;
+  }
+}
+// Sets the device private key per the PKOC specification
+
+message PKOCKeys
+{
+  // Private key used for PKOC device provisioning.
+  bytes private_key = 1;
+}
+
+// Exclusive operation to put credential keys on the device
+// Only one set of keys can be provisioned at any one time
+message KeyProvisionRequest
+{
+  oneof KeyType
+  {
+    // MIFARE Classic A and B Keys
+    MifareClassicKeys mfc_keys = 2;
+    // Message defining the different types of Wallet Keys
+    WalletKeys wallet_keys = 3;
+    // Defines the PKOC private key
+    PKOCKeys pkoc_keys = 4;
+  }
+}

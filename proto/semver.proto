@@ -1,0 +1,19 @@
+syntax = "proto3";
+
+// Semantic version data types.
+package lastlock.api.semver;
+
+
+
+// A semantic versioning structure
+message SemVer
+{
+  // Major version (breaking changes).
+  uint32 major = 1;
+  // Minor version (feature additions).
+  uint32 minor = 2;
+  // Patch version (bug fixes).
+  uint32 patch = 3;
+  // Build or vendor-specific number.
+  uint32 build = 4;
+}

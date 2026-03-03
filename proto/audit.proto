@@ -1,28 +1,58 @@
 syntax = "proto3";
 
+// Audit payloads and stream envelopes sent from devices.
 package lastlock.api;
 
-option go_package = "lastlock.com/proto/auditpb";
 
 import "credential.proto";
 import "audit_types.proto";
 
+// Audit captures a credential usage event reported by a device.
 message Audit
 {
+  // Type of audit event.
   optional lastlock.api.audittypes.AuditType audit_type = 1;
+  // Credential used for this audit, if applicable.
   optional Credential credential = 2;
+  // Device-local timestamp (device epoch seconds).
   optional uint32 when_device = 3;
 
   // if inferred_timestamp is true,
   // when_device is equal to the previous audit,
-  // and is only known to have occurred after that time
+  // and is only known to have occured after that time
   optional bool inferred_timestamp = 4;
 }
 
+// DeviceReport is a generic device status report.
+message DeviceReport
+{
+}
+
+// AssignmentSyncReport reports assignment sync status.
+message AssignmentSyncReport
+{
+  // True if the device successfully synced assignments.
+  optional bool success = 1;
+}
+
+// ReceivedAudit wraps audit-like events with server metadata.
 message ReceivedAudit
 {
+  // Device ID that generated this event.
   optional uint32 device_id = 1;
-  optional Audit audit = 2;
+  // Server-side receipt time (device epoch seconds).
   optional uint32 when_server = 3;
+  // Unique audit identifier, if available.
   optional string audit_id = 4;
+  oneof payload
+  {
+    // Sent when the server receives report of a credential used
+    Audit audit = 2;
+
+    // Sent if the server receives a message from the device
+    DeviceReport device_report = 5;
+
+    // Sent to update client on credential sync
+    AssignmentSyncReport assignment_sync_report = 6;
+  }
 }
