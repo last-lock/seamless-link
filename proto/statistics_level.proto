@@ -1,9 +1,10 @@
 syntax = "proto3";
 
+// Statistics reporting controls.
 package lastlock.api;
 
-option go_package = "lastlock.com/proto/statisticspb";
 
+// StatisticsLevel controls verbosity of device statistics.
 enum StatisticsLevel
 {
   // A good balance between battery life and data

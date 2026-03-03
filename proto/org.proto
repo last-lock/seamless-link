@@ -1,27 +1,36 @@
 syntax = "proto3";
 
+// Org service definitions for device management, audits, and assignments.
 package org;
 
-option go_package = "lastlock.com/proto/orgpb";
 
 import "audit.proto";
 import "credential.proto";
-import "statistics.proto";
+import "semver.proto";
+import "keys.proto";
+import "statistics_level.proto";
 import "lockmodes.proto";
 import "google/protobuf/empty.proto";
+import "google/protobuf/timestamp.proto";
 import "google/protobuf/descriptor.proto";
 
+// ListDevicesRequest filters device summaries by creation time or IDs.
 message ListDevicesRequest
 {
+  // Unix seconds; include devices created at or after this time.
   optional int64 created_at_or_after = 1;
+  // Exact device IDs to include. Empty means no ID filter.
   repeated uint32 device_ids = 2;
 }
 
+// StreamDeviceUpdatesRequest filters device update streams by timestamp.
 message StreamDeviceUpdatesRequest
 {
+  // Unix seconds; include updates at or after this time.
   optional int64 updated_at_or_after = 1;
 }
 
+// DeviceSummary is a lightweight view of a device.
 message DeviceSummary
 {
   // 4 byte access ID
@@ -44,42 +53,90 @@ message DeviceSummary
 
   // Device's Configuration
   optional Configuration configuration = 7;
+
+  // Firmware Version
+  optional lastlock.api.semver.SemVer semver = 8;
+
+  // Last seen timestamp
+  optional int64 last_seen = 9;
+
+  // Last pending operation
+  optional int64 last_operation = 10;
 }
 
+// DeviceSummaries is a batch of device summaries.
 message DeviceSummaries
 {
+  // Device summaries in no guaranteed order.
   repeated DeviceSummary device_summaries = 1;
 }
 
+// ListAuditsRequest filters audits by server time or device IDs.
 message ListAuditsRequest
 {
+  // Inclusive lower bound for server timestamp (device epoch seconds).
   optional uint32 server_time_after = 1;
+  // Exclusive upper bound for server timestamp (device epoch seconds).
   optional uint32 server_time_before = 2;
+  // Limit audits to these device IDs. Empty means all devices.
   repeated uint32 device_ids = 3;
 }
 
+// Audits is a batch of received audits.
 message Audits
 {
+  // Audits in no guaranteed order.
   repeated lastlock.api.ReceivedAudit audits = 1;
 }
 
+// Credentials wraps a list of credential records.
 message Credentials
 {
+  // Credentials assigned to a device or set.
   repeated lastlock.api.Credential credentials = 1;
 }
 
-// Request for the deviceID (key of map)
-// To have exactly the set of credentials in the value
-message AssignmentsRequest
+// Sets is a named list of assignment set IDs.
+message Sets
 {
-  map<uint32, Credentials> assignments = 1;
+  // Set names to apply.
+  repeated string sets = 1;
 }
 
+// AssignmentsRequest defines how credentials are assigned to devices.
+message AssignmentsRequest
+{
+  // Direct credential assignments keyed by device ID.
+  // Each device ID maps to the exact set of credentials it should receive.
+  map<uint32, Credentials> assignments = 1;
+
+  // Named credential sets that can be reused across multiple devices.
+  // Each string key identifies a predefined set of credentials.
+  map<string, Credentials> assignment_sets = 2;
+
+  // Device-to-set mappings keyed by device ID.
+  // Each device receives the union of:
+  //   1) the credentials from all referenced assignment sets, and
+  //   2) any direct credentials defined in `assignments`.
+  //
+  // If the same credential (type + data) appears multiple times for a device,
+  // Link merges those entries into a single credential when possible:
+  //   - schedules are unioned;
+  //   - start_time/end_time bounds must match across variants;
+  //   - if any variant is unbounded 24/7 (no schedule, no start_time, no end_time),
+  //     it overrides bounded variants and the result is unbounded 24/7.
+  // If bounds conflict and cannot be merged, the request is rejected.
+  map<uint32, Sets> device_set_assignments = 3;
+}
+
+// OrganizationKeys contains org-level cryptographic material.
 message OrganizationKeys
 {
+  // PKOC private key material (redacted in logs).
   optional bytes pkoc_key = 1 [ debug_redact = true ];
 }
 
+// Configuration stores per-device settings pushed from the org.
 message Configuration
 {
   // IANA standard time zone support
@@ -101,58 +158,102 @@ message Configuration
   optional lastlock.api.StatisticsLevel statistics_level = 2;
 }
 
+// Configurations applies configurations by device ID.
 message Configurations
 {
   // if a value is not set on a configuration,
   // we defer to current value or default value.
+  // Map of device_id -> configuration overrides.
   map<uint32, Configuration> configurations = 1;
 }
 
+// DeviceUpdate represents a change in a device summary.
 message DeviceUpdate
 {
+  // Device ID for this update.
   optional uint32 device_id = 1;
 
   // if missing, we indicate a deletion
+  // Summary payload for upsert; omitted means deletion.
   optional DeviceSummary summary = 2;
 
+  // Unix seconds when the update was generated.
   optional int64 timestamp = 3;
+
+  // True when this update corresponds to a hard reset event.
+  optional bool hard_reset = 4;
 }
 
+// SetDeviceModeRequest applies lock modes to a device.
 message SetDeviceModeRequest
 {
+  // Device ID to apply modes to.
   optional uint32 device_id = 1;
+  // Modes to apply (install/exit, duration).
   optional lastlock.api.LockModes modes = 2;
 }
 
-// Service to communicate with Link
+// AssignmentsResponse reports assignment timing and updated devices.
+message AssignmentsResponse
+{
+  // Server timestamp when assignments were sent.
+  optional google.protobuf.Timestamp when_sent = 1;
+  // Device IDs updated by this call.
+  repeated uint32 updated_devices = 2;
+}
+
+// SendDevicesKeysRequest provisions device keys.
+message SendDevicesKeysRequest
+{
+  // Target device IDs.
+  repeated uint32 device_ids = 1;
+  // Key payloads to provision on devices.
+  repeated lastlock.api.keys.KeyProvisionRequest keys = 2;
+}
+
+// HardResetDevicesRequest hard-resets devices by ID.
+message HardResetDevicesRequest
+{
+  // Device IDs to hard reset (device will be recreated if missing).
+  repeated uint32 device_ids = 1;
+}
+
+// Org exposes public, org-scoped device management APIs.
 service Org
 {
-  // List device summaries
+  // List device summaries, optionally filtered by creation time or explicit IDs.
   rpc ListDeviceSummaries(ListDevicesRequest) returns (DeviceSummaries);
 
-  // Stream devices summaries
+  // Stream device summaries as a series of batch updates.
   rpc StreamDeviceSummaries(ListDevicesRequest) returns (stream DeviceSummaries);
 
-  // Stream devices deltas
+  // Stream device updates as incremental changes (upserts or deletions).
   rpc StreamDeviceUpdates(StreamDeviceUpdatesRequest) returns (stream DeviceUpdate);
 
-  // List audits
+  // List audits, optionally filtered by server time and device IDs.
   rpc ListAudits(ListAuditsRequest) returns (Audits);
 
-  // Stream audits
+  // Stream audits in real time as they are received.
   rpc StreamAudits(ListAuditsRequest) returns (stream lastlock.api.ReceivedAudit);
 
-  // Assign credentials to a device
-  // Maximum 10,000 credentials may be applied to a given device
-  // Status code exhausted is returned if 10,000 credentials is exceeded
-  rpc Assign(AssignmentsRequest) returns (google.protobuf.Empty);
+  // Assign credentials and sets to devices in bulk.
+  // Maximum 10,000 credentials may be applied to a given device.
+  // Status code exhausted is returned if 10,000 credentials is exceeded.
+  rpc Assign(AssignmentsRequest) returns (AssignmentsResponse);
 
-  // Set keys for the organization
+  // Set keys for the organization.
+  // This is deprecated; prefer SendDeviceKeys.
   rpc SetOrgKeys(OrganizationKeys) returns (google.protobuf.Empty);
 
-  // Set configurations on devices.
+  // Set configurations on devices by ID.
   rpc SetConfiguration(Configurations) returns (google.protobuf.Empty);
 
-  // Temp install mode rpc
+  // Apply lock mode changes such as entering or exiting install mode.
   rpc SendLockMode(SetDeviceModeRequest) returns (google.protobuf.Empty);
+
+  // Provision keys for one or more devices.
+  rpc SendDeviceKeys(SendDevicesKeysRequest) returns (google.protobuf.Empty);
+
+  // Hard reset one or more devices. Returns NotFound if any device is missing.
+  rpc HardResetDevices(HardResetDevicesRequest) returns (google.protobuf.Empty);
 }

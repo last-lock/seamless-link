@@ -1,0 +1,107 @@
+syntax = "proto3";
+
+package sil;
+
+
+import "credential.proto";
+import "google/protobuf/empty.proto";
+import "google/protobuf/timestamp.proto";
+
+// SIL service exposes the software-in-the-loop emulator via gRPC.
+service SIL
+{
+  // Provision rotates the emulator keys and syncs with Plane.
+  rpc Provision(ProvisionRequest) returns (google.protobuf.Empty);
+
+  // GenerateAudit emits an audit event through Plane.
+  rpc GenerateAudit(GenerateAuditRequest) returns (google.protobuf.Empty);
+
+  // ListAssigned reports the credentials currently tracked by the emulator.
+  rpc ListAssigned(ListAssignedRequest) returns (ListAssignedResponse);
+
+  // SetTime overrides the emulator clock.
+  rpc SetTime(SetTimeRequest) returns (google.protobuf.Empty);
+
+  // GenerateLowBatteryAudit emits a low battery audit event through Plane.
+  rpc GenerateLowBatteryAudit(GenerateLowBatteryAuditRequest) returns (google.protobuf.Empty);
+
+  // ResetDevice clears SIL state for a tracked device and reinitializes it.
+  rpc ResetDevice(ResetDeviceRequest) returns (google.protobuf.Empty);
+
+  // GetDeviceStatus returns status for one tracked SIL device.
+  rpc GetDeviceStatus(GetDeviceStatusRequest) returns (DeviceStatus);
+
+  // ListDevices returns all tracked SIL devices.
+  rpc ListDevices(ListDevicesRequest) returns (ListDevicesResponse);
+
+}
+
+message ProvisionRequest
+{
+  uint32 device_id = 1;
+}
+
+message GenerateAuditRequest
+{
+  uint32 device_id = 1;
+  optional lastlock.api.CredentialType credential_type = 2;
+  bytes credential_data = 3;
+}
+
+message ListAssignedRequest
+{
+  uint32 device_id = 1;
+}
+
+message ListAssignedResponse
+{
+  repeated AssignedCredential assigned = 1;
+}
+
+message AssignedCredential
+{
+  lastlock.api.CredentialType credential_type = 1;
+  bytes data = 2;
+}
+
+message SetTimeRequest
+{
+  uint32 device_id = 1;
+  google.protobuf.Timestamp timestamp = 2;
+}
+
+message GenerateLowBatteryAuditRequest
+{
+  uint32 device_id = 1;
+}
+
+message ResetDeviceRequest
+{
+  uint32 device_id = 1;
+}
+
+message GetDeviceStatusRequest
+{
+  uint32 device_id = 1;
+}
+
+message ListDevicesRequest
+{
+  // Intentionally unpaginated for SIL dev/test usage where tracked device counts are low.
+  // Add page_size/page_token if operational usage grows beyond this assumption.
+}
+
+message ListDevicesResponse
+{
+  repeated DeviceStatus devices = 1;
+}
+
+message DeviceStatus
+{
+  uint32 device_id = 1;
+  uint32 assigned_count = 2;
+  bool stream_connected = 3;
+  google.protobuf.Timestamp created_at = 4;
+  google.protobuf.Timestamp updated_at = 5;
+  google.protobuf.Timestamp last_provisioned_at = 6;
+}
