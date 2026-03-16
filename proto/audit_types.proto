@@ -49,4 +49,6 @@ enum AuditType
   // Battery is Dead
   DeadBattery = 0x10;
 
+  // Initial Aliro reader public key was captured during provisioning.
+  AliroReaderPublicKeyCaptured = 0x11;
 }
