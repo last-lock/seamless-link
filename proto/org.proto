@@ -27,6 +27,8 @@ message ListDevicesRequest
 message StreamDeviceUpdatesRequest
 {
   // Unix seconds; include updates at or after this time.
+  // The stream first sends any persisted updates matching this bound,
+  // then continues with live updates.
   optional int64 updated_at_or_after = 1;
 }
 
@@ -62,6 +64,9 @@ message DeviceSummary
 
   // Last pending operation
   optional int64 last_operation = 10;
+
+  // Device Aliro reader public key from initial provisioning.
+  optional bytes aliro_reader_public_key = 11;
 }
 
 // DeviceSummaries is a batch of device summaries.
@@ -119,13 +124,10 @@ message AssignmentsRequest
   //   1) the credentials from all referenced assignment sets, and
   //   2) any direct credentials defined in `assignments`.
   //
-  // If the same credential (type + data) appears multiple times for a device,
-  // Link merges those entries into a single credential when possible:
-  //   - schedules are unioned;
-  //   - start_time/end_time bounds must match across variants;
-  //   - if any variant is unbounded 24/7 (no schedule, no start_time, no end_time),
-  //     it overrides bounded variants and the result is unbounded 24/7.
-  // If bounds conflict and cannot be merged, the request is rejected.
+  // Duplicate credentials are rejected within a single set definition and within
+  // a single direct device assignment. Duplicate credentials across combined
+  // sources (set + set, or set + direct) are merged per Link's schedule/bounds
+  // merge behavior. If duplicates cannot be merged, the request is rejected.
   map<uint32, Sets> device_set_assignments = 3;
 }
 
@@ -161,9 +163,9 @@ message Configuration
 // Configurations applies configurations by device ID.
 message Configurations
 {
-  // if a value is not set on a configuration,
-  // we defer to current value or default value.
   // Map of device_id -> configuration overrides.
+  // Unset fields are not cleared; they retain the current (or default) value.
+  // Each entry is applied as a partial update to the device configuration.
   map<uint32, Configuration> configurations = 1;
 }
 
@@ -189,7 +191,10 @@ message SetDeviceModeRequest
 {
   // Device ID to apply modes to.
   optional uint32 device_id = 1;
-  // Modes to apply (install/exit, duration).
+  // Modes to apply.
+  // Current public behavior supports install mode transitions:
+  // - ENTER: requires duration_seconds in [300, 7200] (defaults to 300)
+  // - EXIT: clears install mode (reboot=true)
   optional lastlock.api.LockModes modes = 2;
 }
 
@@ -207,17 +212,55 @@ message SendDevicesKeysRequest
 {
   // Target device IDs.
   repeated uint32 device_ids = 1;
-  // Key payloads to provision on devices.
+  // Key payloads to provision on each target device.
+  // The same key set is applied to every listed device ID.
   repeated lastlock.api.keys.KeyProvisionRequest keys = 2;
 }
 
 // HardResetDevicesRequest hard-resets devices by ID.
 message HardResetDevicesRequest
 {
-  // Device IDs to hard reset (device will be recreated if missing).
+  // Device IDs to hard reset.
+  // Request fails with NotFound if any listed device does not exist.
   repeated uint32 device_ids = 1;
 }
 
+// AliroConfigForDevice sets Aliro reader configuration for one device.
+message AliroConfigForDevice
+{
+  // Target device ID.
+  optional uint32 device_id = 1;
+  // 16-byte reader group ID.
+  optional bytes reader_group_id = 2;
+  // DER X.509 reader certificate (Org compresses to Profile0000 before sending to device).
+  optional bytes reader_certificate = 3;
+  // P-256 public keys (limit: 1), each 65-byte uncompressed SEC1 encoding: 0x04 || X || Y.
+  repeated bytes issuer_public_keys = 4;
+}
+
+// SetAliroConfigRequest sets Aliro reader configuration for one or more devices.
+message SetAliroConfigRequest
+{
+  // Per-device Aliro configuration entries.
+  repeated AliroConfigForDevice configs = 1;
+}
+
+// SetAliroConfigResponse is intentionally empty.
+message SetAliroConfigResponse {}
+
+// Aliro access data element identifier request payload.
+message AliroAccessElementIdentifiers
+{
+  // Access Data Element identifiers to request from the user device.
+  repeated string data_element_identifiers = 1;
+}
+
+// SetAliroAccessElementIdentifiersRequest sends Aliro access element identifier requests by device ID.
+message SetAliroAccessElementIdentifiersRequest
+{
+  // Map of device_id -> Aliro Access Data Element identifier request.
+  map<uint32, AliroAccessElementIdentifiers> requests = 1;
+}
 // Org exposes public, org-scoped device management APIs.
 service Org
 {
@@ -228,6 +271,7 @@ service Org
   rpc StreamDeviceSummaries(ListDevicesRequest) returns (stream DeviceSummaries);
 
   // Stream device updates as incremental changes (upserts or deletions).
+  // If DeviceUpdate.summary is absent, treat the update as a deletion event.
   rpc StreamDeviceUpdates(StreamDeviceUpdatesRequest) returns (stream DeviceUpdate);
 
   // List audits, optionally filtered by server time and device IDs.
@@ -242,18 +286,28 @@ service Org
   rpc Assign(AssignmentsRequest) returns (AssignmentsResponse);
 
   // Set keys for the organization.
-  // This is deprecated; prefer SendDeviceKeys.
+  // Deprecated; prefer SendDeviceKeys.
   rpc SetOrgKeys(OrganizationKeys) returns (google.protobuf.Empty);
 
-  // Set configurations on devices by ID.
+  // Set per-device configuration overrides by device ID.
+  // Applies partial updates; unspecified fields remain unchanged.
   rpc SetConfiguration(Configurations) returns (google.protobuf.Empty);
 
-  // Apply lock mode changes such as entering or exiting install mode.
+  // Set Aliro provisioning inputs for one device.
+  rpc SetAliroConfig(SetAliroConfigRequest) returns (SetAliroConfigResponse);
+
+  // Apply lock mode changes to a single device.
+  // Current behavior supports install mode enter/exit.
   rpc SendLockMode(SetDeviceModeRequest) returns (google.protobuf.Empty);
 
-  // Provision keys for one or more devices.
+  // Provision key material for one or more devices.
+  // The request key set is applied to each listed device.
   rpc SendDeviceKeys(SendDevicesKeysRequest) returns (google.protobuf.Empty);
 
-  // Hard reset one or more devices. Returns NotFound if any device is missing.
+  // Hard reset one or more devices.
+  // Returns NotFound if any requested device is missing.
   rpc HardResetDevices(HardResetDevicesRequest) returns (google.protobuf.Empty);
+
+  // Send Aliro access element identifier requests to one or more devices.
+  rpc SetAliroAccessElementIdentifiers(SetAliroAccessElementIdentifiersRequest) returns (google.protobuf.Empty);
 }

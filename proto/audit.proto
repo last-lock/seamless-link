@@ -35,6 +35,13 @@ message AssignmentSyncReport
   optional bool success = 1;
 }
 
+// AliroReaderPublicKeyCapturedReport carries the reader public key captured during initial provisioning.
+message AliroReaderPublicKeyCapturedReport
+{
+  // Captured Aliro reader public key.
+  optional bytes reader_public_key = 1;
+}
+
 // ReceivedAudit wraps audit-like events with server metadata.
 message ReceivedAudit
 {
@@ -54,5 +61,8 @@ message ReceivedAudit
 
     // Sent to update client on credential sync
     AssignmentSyncReport assignment_sync_report = 6;
+
+    // Sent when initial Aliro reader public key is captured.
+    AliroReaderPublicKeyCapturedReport aliro_reader_public_key_captured_report = 7;
   }
 }
