@@ -27,6 +27,15 @@ message GoogleWallet
   // DF-Name from transaction
   bytes dfname = 2;
 }
+// Keys for a generic DESFire credential profile (LEAF, AN10922 PACS, etc.)
+message GenericDesfire
+{
+  // Primary credential authentication key (AES-128, 16 bytes).
+  bytes credential_key = 1;
+  // Optional privacy authentication key (AES-128, 16 bytes).
+  // Only needed when the credential profile uses a two-step privacy flow.
+  optional bytes privacy_key = 2;
+}
 
 // Collection of the different wallet key types
 message WalletKeys
@@ -37,6 +46,8 @@ message WalletKeys
     AppleWallet apple_wallet = 4;
     // Google Wallet keys.
     GoogleWallet google_wallet = 5;
+    // Generic DESFire profile keys (LEAF, AN10922 PACS, etc.)
+    GenericDesfire generic_desfire = 6;
   }
 }
 // Sets the device private key per the PKOC specification

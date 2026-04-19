@@ -10,6 +10,7 @@ import "semver.proto";
 import "keys.proto";
 import "statistics_level.proto";
 import "lockmodes.proto";
+import "credential_profile.proto";
 import "google/protobuf/empty.proto";
 import "google/protobuf/timestamp.proto";
 import "google/protobuf/descriptor.proto";
@@ -65,8 +66,14 @@ message DeviceSummary
   // Last pending operation
   optional int64 last_operation = 10;
 
-  // Device Aliro reader public key from initial provisioning.
-  optional bytes aliro_reader_public_key = 11;
+  // Last credential profile snapshot sent for this device.
+  optional lastlock.api.DesfireProfileSet credential_profiles = 12;
+
+  // Device Aliro reader public key captured during provisioning.
+  optional bytes aliro_reader_public_key = 13;
+
+  // Device Aliro reader group ID set via SetAliroConfig.
+  optional bytes aliro_reader_group_id = 14;
 }
 
 // DeviceSummaries is a batch of device summaries.
@@ -225,6 +232,15 @@ message HardResetDevicesRequest
   repeated uint32 device_ids = 1;
 }
 
+// UpdateCredentialProfilesRequest sets card credential profiles for this org.
+message UpdateCredentialProfilesRequest
+{
+  // Target devices to receive this profile update.
+  repeated uint32 device_ids = 1;
+  // Complete profile snapshot to fan out to target devices.
+  optional lastlock.api.DesfireProfileSet profile_set = 2;
+}
+
 // AliroConfigForDevice sets Aliro reader configuration for one device.
 message AliroConfigForDevice
 {
@@ -232,7 +248,7 @@ message AliroConfigForDevice
   optional uint32 device_id = 1;
   // 16-byte reader group ID.
   optional bytes reader_group_id = 2;
-  // DER X.509 reader certificate (Org compresses to Profile0000 before sending to device).
+  // DER X.509 reader certificate.
   optional bytes reader_certificate = 3;
   // P-256 public keys (limit: 1), each 65-byte uncompressed SEC1 encoding: 0x04 || X || Y.
   repeated bytes issuer_public_keys = 4;
@@ -287,14 +303,12 @@ service Org
 
   // Set keys for the organization.
   // Deprecated; prefer SendDeviceKeys.
+  // This method sets org-level PKOC key material.
   rpc SetOrgKeys(OrganizationKeys) returns (google.protobuf.Empty);
 
   // Set per-device configuration overrides by device ID.
   // Applies partial updates; unspecified fields remain unchanged.
   rpc SetConfiguration(Configurations) returns (google.protobuf.Empty);
-
-  // Set Aliro provisioning inputs for one device.
-  rpc SetAliroConfig(SetAliroConfigRequest) returns (SetAliroConfigResponse);
 
   // Apply lock mode changes to a single device.
   // Current behavior supports install mode enter/exit.
@@ -307,6 +321,12 @@ service Org
   // Hard reset one or more devices.
   // Returns NotFound if any requested device is missing.
   rpc HardResetDevices(HardResetDevicesRequest) returns (google.protobuf.Empty);
+
+  // Set Aliro provisioning inputs for one or more devices.
+  rpc SetAliroConfig(SetAliroConfigRequest) returns (SetAliroConfigResponse);
+
+  // Send the latest card credential profile set to devices in the org.
+  rpc UpdateCredentialProfiles(UpdateCredentialProfilesRequest) returns (google.protobuf.Empty);
 
   // Send Aliro access element identifier requests to one or more devices.
   rpc SetAliroAccessElementIdentifiers(SetAliroAccessElementIdentifiersRequest) returns (google.protobuf.Empty);
