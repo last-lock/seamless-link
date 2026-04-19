@@ -51,4 +51,7 @@ enum AuditType
 
   // Initial Aliro reader public key was captured during provisioning.
   AliroReaderPublicKeyCaptured = 0x11;
+
+  // Aliro UD public key credential audit.
+  AliroUdPublicKey = 0x12;
 }
