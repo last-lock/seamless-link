@@ -1,0 +1,48 @@
+syntax = "proto3";
+package link;
+
+
+import "semver.proto";
+
+message DFURequest
+{
+  repeated uint32 device_ids = 1;
+}
+
+message DFUEdge
+{
+  optional lastlock.api.semver.SemVer from = 1;
+  optional lastlock.api.semver.SemVer to = 2;
+}
+
+message DFUGraph
+{
+  repeated DFUEdge edges = 1;
+}
+
+message ListAvailableDFUsRequest
+{
+  repeated lastlock.api.semver.SemVer versions = 1;
+}
+
+message DeviceTarget
+{
+  optional uint32 device_id = 1;
+  optional lastlock.api.semver.SemVer to = 2;
+}
+
+message TargetDFUsRequest
+{
+  repeated DeviceTarget targets = 1;
+}
+
+message TargetedDFU
+{
+  optional uint32 device_id = 1;
+  optional lastlock.api.semver.SemVer to = 2;
+}
+
+message TargetDFUsResponse
+{
+  repeated TargetedDFU targets = 1;
+}

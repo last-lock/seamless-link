@@ -3,6 +3,7 @@ syntax = "proto3";
 // Audit payloads and stream envelopes sent from devices.
 package lastlock.api;
 
+
 import "credential.proto";
 import "audit_types.proto";
 
@@ -15,15 +16,20 @@ message Audit
   optional Credential credential = 2;
   // Device-local timestamp (device epoch seconds).
   optional uint32 when_device = 3;
-
   // if inferred_timestamp is true,
   // when_device is equal to the previous audit,
-  // and is only known to have occured after that time
+  // and is only known to have occurred after that time
   optional bool inferred_timestamp = 4;
-
   // Aliro reader public key captured from initial provisioning.
   // Present on AliroReaderPublicKeyCaptured audits.
   optional bytes aliro_reader_public_key = 5;
+  // Text description of the audit.
+  optional string description = 6;
+  // True when Link determines the device is ready for normal writes.
+  // Writable audits use audit_type DeviceLifecycle.
+  // Hard reset clears the stored device writable state, so a device can emit this again
+  // after returning from reset.
+  optional bool writable = 7;
 }
 
 // DeviceReport is a generic device status report.
@@ -45,7 +51,8 @@ message DeprecatedUsageReport
   optional string message = 1;
 }
 
-// AliroReaderPublicKeyCapturedReport carries the reader public key captured during initial provisioning.
+// AliroReaderPublicKeyCapturedReport carries the reader public key captured during initial
+// provisioning.
 message AliroReaderPublicKeyCapturedReport
 {
   // Captured Aliro reader public key.

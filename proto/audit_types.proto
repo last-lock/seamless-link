@@ -54,4 +54,7 @@ enum AuditType
 
   // Aliro UD public key credential audit.
   AliroUdPublicKey = 0x12;
+
+  // Device lifecycle/readiness event.
+  DeviceLifecycle = 0x13;
 }
