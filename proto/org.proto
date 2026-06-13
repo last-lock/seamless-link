@@ -6,6 +6,7 @@ package org;
 
 import "audit.proto";
 import "credential.proto";
+import "dfu.proto";
 import "semver.proto";
 import "keys.proto";
 import "statistics_level.proto";
@@ -31,6 +32,13 @@ message StreamDeviceUpdatesRequest
   // The stream first sends any persisted updates matching this bound,
   // then continues with live updates.
   optional int64 updated_at_or_after = 1;
+}
+
+enum VersionSource
+{
+  VERSION_SOURCE_UNKNOWN = 0;
+  VERSION_SOURCE_ASSUMED = 1;
+  VERSION_SOURCE_REPORTED = 2;
 }
 
 // DeviceSummary is a lightweight view of a device.
@@ -66,6 +74,9 @@ message DeviceSummary
   // Last pending operation
   optional int64 last_operation = 10;
 
+  // Friendly device name shown in client UIs.
+  optional string friendly_name = 11;
+
   // Last credential profile snapshot sent for this device.
   optional lastlock.api.DesfireProfileSet credential_profiles = 12;
 
@@ -74,6 +85,9 @@ message DeviceSummary
 
   // Device Aliro reader group ID set via SetAliroConfig.
   optional bytes aliro_reader_group_id = 14;
+
+  // Whether semver is an assumed factory value or a device-reported value.
+  optional VersionSource version_source = 15;
 }
 
 // DeviceSummaries is a batch of device summaries.
@@ -142,7 +156,7 @@ message AssignmentsRequest
 message OrganizationKeys
 {
   // PKOC private key material (redacted in logs).
-  optional bytes pkoc_key = 1 [ debug_redact = true ];
+  optional bytes pkoc_key = 1 [debug_redact = true];
 }
 
 // Configuration stores per-device settings pushed from the org.
@@ -165,6 +179,10 @@ message Configuration
 
   // Set statistics level
   optional lastlock.api.StatisticsLevel statistics_level = 2;
+
+  // Friendly device name shown in client UIs.
+  // Maximum length: 128 characters.
+  optional string friendly_name = 3;
 }
 
 // Configurations applies configurations by device ID.
@@ -191,6 +209,9 @@ message DeviceUpdate
 
   // True when this update corresponds to a hard reset event.
   optional bool hard_reset = 4;
+
+  // Device update version
+  optional int64 version = 5;
 }
 
 // SetDeviceModeRequest applies lock modes to a device.
@@ -232,13 +253,47 @@ message HardResetDevicesRequest
   repeated uint32 device_ids = 1;
 }
 
+// Link-side input shape for one DESFire profile update.
+message DesfireProfileInput
+{
+  // Generic DESFire transaction settings.
+  optional lastlock.api.DesfireProfileConfigurations configurations = 1 [debug_redact = true];
+  // Cleartext generic DESFire keys to encrypt for each target device.
+  optional lastlock.api.keys.GenericDesfire keys = 2 [debug_redact = true];
+}
+
+// Link-side input shape for a full DESFire profile update set.
+message DesfireProfileInputSet
+{
+  repeated DesfireProfileInput profiles = 1;
+  optional bytes ecp = 2;
+}
+
 // UpdateCredentialProfilesRequest sets card credential profiles for this org.
 message UpdateCredentialProfilesRequest
 {
   // Target devices to receive this profile update.
   repeated uint32 device_ids = 1;
   // Complete profile snapshot to fan out to target devices.
-  optional lastlock.api.DesfireProfileSet profile_set = 2;
+  optional DesfireProfileInputSet profile_set = 2;
+}
+
+// Per-device result for an UpdateCredentialProfiles fanout.
+message UpdateCredentialProfilesDeviceResult
+{
+  // Target device ID.
+  optional uint32 device_id = 1;
+  // Human-readable failure detail. Empty for successful devices.
+  optional string message = 2;
+}
+
+// UpdateCredentialProfilesResponse reports per-device fanout success and failure.
+message UpdateCredentialProfilesResponse
+{
+  // Devices that accepted the profile update.
+  repeated UpdateCredentialProfilesDeviceResult devices_successful = 1;
+  // Devices that failed to accept the profile update.
+  repeated UpdateCredentialProfilesDeviceResult devices_failed = 2;
 }
 
 // AliroConfigForDevice sets Aliro reader configuration for one device.
@@ -262,7 +317,9 @@ message SetAliroConfigRequest
 }
 
 // SetAliroConfigResponse is intentionally empty.
-message SetAliroConfigResponse {}
+message SetAliroConfigResponse
+{
+}
 
 // Aliro access data element identifier request payload.
 message AliroAccessElementIdentifiers
@@ -271,7 +328,8 @@ message AliroAccessElementIdentifiers
   repeated string data_element_identifiers = 1;
 }
 
-// SetAliroAccessElementIdentifiersRequest sends Aliro access element identifier requests by device ID.
+// SetAliroAccessElementIdentifiersRequest sends Aliro access element identifier requests by device
+// ID.
 message SetAliroAccessElementIdentifiersRequest
 {
   // Map of device_id -> Aliro Access Data Element identifier request.
@@ -326,8 +384,16 @@ service Org
   rpc SetAliroConfig(SetAliroConfigRequest) returns (SetAliroConfigResponse);
 
   // Send the latest card credential profile set to devices in the org.
-  rpc UpdateCredentialProfiles(UpdateCredentialProfilesRequest) returns (google.protobuf.Empty);
+  rpc UpdateCredentialProfiles(UpdateCredentialProfilesRequest)
+      returns (UpdateCredentialProfilesResponse);
 
   // Send Aliro access element identifier requests to one or more devices.
-  rpc SetAliroAccessElementIdentifiers(SetAliroAccessElementIdentifiersRequest) returns (google.protobuf.Empty);
+  rpc SetAliroAccessElementIdentifiers(SetAliroAccessElementIdentifiersRequest)
+      returns (google.protobuf.Empty);
+
+  // List the reachable DFU graph starting from the supplied versions.
+  rpc ListAvailableDFUs(link.ListAvailableDFUsRequest) returns (link.DFUGraph);
+
+  // Target the next DFU hop for one or more devices based on their current versions.
+  rpc TargetDFUs(link.TargetDFUsRequest) returns (link.TargetDFUsResponse);
 }

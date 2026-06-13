@@ -7,23 +7,26 @@ package lastlock.api.keys;
 message MifareClassicKeys
 {
   // Read Key
-  optional bytes A_key = 1;
+  optional bytes A_key = 1
+      [ debug_redact = true ];
   // Write Key
-  optional bytes B_key = 2;
+  optional bytes B_key = 2
+      [ debug_redact = true ];
 }
 // Keys for an Apple Wallet credential.
 message AppleWallet
 {
   // Privacy key for transaction
-  bytes privacy_key = 1;
+  bytes privacy_key = 1 [ debug_redact = true ];
   // Security/master key to access secure credential information
-  bytes credential_key = 2;
+  bytes credential_key = 2
+      [ debug_redact = true ];
 }
 // Keys for a Google Wallet credential.
 message GoogleWallet
 {
   // Master key for transaction
-  bytes master_key = 1;
+  bytes master_key = 1 [ debug_redact = true ];
   // DF-Name from transaction
   bytes dfname = 2;
 }
@@ -31,10 +34,12 @@ message GoogleWallet
 message GenericDesfire
 {
   // Primary credential authentication key (AES-128, 16 bytes).
-  bytes credential_key = 1;
+  bytes credential_key = 1
+      [ debug_redact = true ];
   // Optional privacy authentication key (AES-128, 16 bytes).
   // Only needed when the credential profile uses a two-step privacy flow.
-  optional bytes privacy_key = 2;
+  optional bytes privacy_key = 2
+      [ debug_redact = true ];
 }
 
 // Collection of the different wallet key types
@@ -55,7 +60,7 @@ message WalletKeys
 message PKOCKeys
 {
   // Private key used for PKOC device provisioning.
-  bytes private_key = 1;
+  bytes private_key = 1 [ debug_redact = true ];
 }
 
 // Exclusive operation to put credential keys on the device
