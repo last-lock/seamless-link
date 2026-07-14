@@ -45,6 +45,7 @@ message GenericDesfire
 // Collection of the different wallet key types
 message WalletKeys
 {
+  reserved 1, 2, 3;
   oneof WalletType
   {
     // Apple Wallet keys.
