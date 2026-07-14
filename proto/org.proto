@@ -183,6 +183,9 @@ message Configuration
   // Friendly device name shown in client UIs.
   // Maximum length: 128 characters.
   optional string friendly_name = 3;
+
+  // Aliro configuration
+  optional AliroConfigForDevice aliro_configuration = 4;
 }
 
 // Configurations applies configurations by device ID.
@@ -307,6 +310,13 @@ message AliroConfigForDevice
   optional bytes reader_certificate = 3;
   // P-256 public keys (limit: 1), each 65-byte uncompressed SEC1 encoding: 0x04 || X || Y.
   repeated bytes issuer_public_keys = 4;
+  // DER X.509 Credential Issuer CA certificates trusted for Access Document x5chain verification.
+  repeated bytes credential_issuer_ca = 5;
+  // Access document element ids
+  repeated bytes access_document_element_ids = 6;
+  // P-256 Reader System Issuer CA public key (65-byte uncompressed SEC1: 0x04 || X || Y)
+  // used by the device to validate the reader certificate.
+  optional bytes reader_system_issuer_ca_pub_key = 7;
 }
 
 // SetAliroConfigRequest sets Aliro reader configuration for one or more devices.
@@ -326,6 +336,44 @@ message AliroAccessElementIdentifiers
 {
   // Access Data Element identifiers to request from the user device.
   repeated string data_element_identifiers = 1;
+}
+
+// Feature identifies a device capability that may be required by a server-side
+// configuration. When a configuration contains a feature that is newer than the
+// target device firmware, Link rejects the write before sending an unsupported
+// payload to the device.
+enum Feature
+{
+  // Unknown means the server detected that the configuration would lose data
+  // when converted to the target firmware schema, but could not map the loss to
+  // a more specific feature.
+  Unknown = 0x00;
+  // Aliro reader configuration.
+  Aliro = 0x01;
+  // Device credential profile configuration.
+  CredentialProfiles = 0x02;
+}
+
+// UnsupportedConfigurationDevice describes one device that cannot accept a
+// requested configuration because its current firmware does not support one or
+// more features present in that configuration.
+message UnsupportedConfigurationDevice
+{
+  // Device ID for the device that cannot accept the configuration. This may be
+  // absent when the unsupported feature is detected before the failing device is
+  // known.
+  optional uint32 deviceID = 1;
+  // Features that require a newer device firmware version.
+  repeated Feature features = 2;
+}
+
+// UnsupportedConfiguration is returned in the details of a gRPC Unimplemented
+// error when Link refuses to send a configuration update that would be partially
+// unsupported by one or more target devices.
+message UnsupportedConfiguration
+{
+  // Per-device unsupported configuration details.
+  repeated UnsupportedConfigurationDevice devices = 1;
 }
 
 // SetAliroAccessElementIdentifiersRequest sends Aliro access element identifier requests by device

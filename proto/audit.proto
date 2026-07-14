@@ -30,6 +30,8 @@ message Audit
   // Hard reset clears the stored device writable state, so a device can emit this again
   // after returning from reset.
   optional bool writable = 7;
+  // The device is now removed from the org
+  optional bool removed_from_org = 8;
 }
 
 // DeviceReport is a generic device status report.

@@ -41,13 +41,7 @@ service SIL
   rpc SetFirmwareVersion(SetFirmwareVersionRequest) returns (google.protobuf.Empty);
 }
 
-
 message ProvisionRequest
-{
-  uint32 device_id = 1;
-}
-
-message CreateDeviceRequest
 {
   uint32 device_id = 1;
 }
