@@ -7,6 +7,26 @@ package lastlock.api;
 import "credential.proto";
 import "audit_types.proto";
 
+enum CommandType
+{
+  COMMAND_TYPE_UNSPECIFIED = 0;
+  COMMAND_TYPE_DFU = 3;
+  COMMAND_TYPE_RESET = 4;
+  COMMAND_TYPE_INSTALL_MODE = 7;
+  COMMAND_TYPE_IDENTIFY = 9;
+  COMMAND_TYPE_HIBERNATE_MODE = 14;
+  COMMAND_TYPE_ALIRO_PUSH_CSR = 15;
+}
+
+// CommandEvent records a command processed by firmware.
+message CommandEvent
+{
+  // Type of command processed by firmware.
+  optional CommandType command_type = 1;
+  // True when firmware reported the command completed without error.
+  optional bool success = 2;
+}
+
 // Audit captures a credential usage event reported by a device.
 message Audit
 {
@@ -32,6 +52,11 @@ message Audit
   optional bool writable = 7;
   // The device is now removed from the org
   optional bool removed_from_org = 8;
+  // Command event reported by firmware.
+  optional CommandEvent command_event = 10;
+  // DER-encoded PKCS#10 CSR for the Aliro reader certificate.
+  // Present on AliroReaderPublicKeyCaptured audits when firmware can generate it.
+  optional bytes aliro_reader_csr = 11;
 }
 
 // DeviceReport is a generic device status report.
@@ -59,6 +84,8 @@ message AliroReaderPublicKeyCapturedReport
 {
   // Captured Aliro reader public key.
   optional bytes reader_public_key = 1;
+  // DER-encoded PKCS#10 CSR for the Aliro reader certificate.
+  optional bytes reader_certificate_signing_request = 2;
 }
 
 // ReceivedAudit wraps audit-like events with server metadata.

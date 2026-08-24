@@ -82,6 +82,8 @@ message DeviceSummary
 
   // Device Aliro reader public key captured during provisioning.
   optional bytes aliro_reader_public_key = 13;
+  // Device Aliro reader certificate signing request captured during provisioning.
+  optional bytes aliro_reader_csr = 16;
 
   // Device Aliro reader group ID set via SetAliroConfig.
   optional bytes aliro_reader_group_id = 14;
@@ -162,19 +164,62 @@ message OrganizationKeys
 // Configuration stores per-device settings pushed from the org.
 message Configuration
 {
-  // IANA standard time zone support
-  // We currently support this list:
-  // - America/New_York: EST5EDT,M3.2.0,M11.1.0
-  // - America/Chicago: CST6CDT,M3.2.0,M11.1.0
-  // - America/Denver: MST7MDT,M3.2.0,M11.1.0
-  // - America/Phoenix: MST7
-  // - America/Los_Angeles: PST8PDT,M3.2.0,M11.1.0
-  // - America/Anchorage: AKST9AKDT,M3.2.0,M11.1.0
-  // - Pacific/Honolulu: HST10
-  // - Etc/UTC: UTC0
-  // - Asia/Tokyo: JST-9
-  // - Europe/London: GMT0BST,M3.5.0/1,M10.5.0
-  // - Europe/Paris: CET-1CEST,M3.5.0,M10.5.0/3
+  // IANA time zone identifier. Devices support a curated set of IANA zones
+  // whose current daylight-saving rules are compatible with device scheduling.
+  //
+  // Supported values:
+  // - Africa/Johannesburg
+  // - Africa/Lagos
+  // - Africa/Nairobi
+  // - America/Anchorage
+  // - America/Argentina/Buenos_Aires
+  // - America/Bogota
+  // - America/Chicago
+  // - America/Denver
+  // - America/Detroit
+  // - America/Edmonton
+  // - America/Halifax
+  // - America/Indiana/Indianapolis
+  // - America/Lima
+  // - America/Los_Angeles
+  // - America/Mexico_City
+  // - America/New_York
+  // - America/Panama
+  // - America/Phoenix
+  // - America/Regina
+  // - America/Sao_Paulo
+  // - America/St_Johns
+  // - America/Toronto
+  // - America/Vancouver
+  // - America/Winnipeg
+  // - Asia/Bangkok
+  // - Asia/Dubai
+  // - Asia/Karachi
+  // - Asia/Kolkata
+  // - Asia/Seoul
+  // - Asia/Shanghai
+  // - Asia/Singapore
+  // - Asia/Tokyo
+  // - Australia/Adelaide
+  // - Australia/Brisbane
+  // - Australia/Melbourne
+  // - Australia/Perth
+  // - Australia/Sydney
+  // - Etc/GMT+1
+  // - Etc/UTC
+  // - Europe/Amsterdam
+  // - Europe/Berlin
+  // - Europe/Dublin
+  // - Europe/Istanbul
+  // - Europe/London
+  // - Europe/Madrid
+  // - Europe/Moscow
+  // - Europe/Paris
+  // - Europe/Rome
+  // - Europe/Warsaw
+  // - Europe/Zurich
+  // - Pacific/Auckland
+  // - Pacific/Honolulu
   optional string time_zone = 1;
 
   // Set statistics level
@@ -186,6 +231,10 @@ message Configuration
 
   // Aliro configuration
   optional AliroConfigForDevice aliro_configuration = 4;
+
+  // Site use for authentication
+  // If missing or empty string, defaults to "default"
+  optional string site = 5;
 }
 
 // Configurations applies configurations by device ID.

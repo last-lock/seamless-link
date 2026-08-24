@@ -57,4 +57,7 @@ enum AuditType
 
   // Device lifecycle/readiness event.
   DeviceLifecycle = 0x13;
+
+  // OOB command accepted by firmware.
+  Command = 0x14;
 }
