@@ -1,0 +1,76 @@
+syntax = "proto3";
+
+package lastlock.api.aliro;
+
+
+
+/*
+ * Important:
+ *  The Aliro schedule is complex and has many rules regarding recurrences.
+ *  Covering all conditions and nuances is out of scope for this file.
+ *  Please read section 7.3.4 of the Aliro specification carefully.
+ *  Important details, such as mask definitions, are detailed in that document.
+ *
+ * The Aliro v1.0 specification is available to public.
+ *  You can request a copy here:
+ *   https://csa-iot.org/developer-resource/specifications-download-request/
+ */
+
+enum ACalScheduleFlags_Bits
+{
+  /* When the Time_in_UTC bit is set, UTC time is used.
+   * When the Time_in_UTC bit is not set, the reader's local time is used,
+   *  meaning the time zone the device is configured with.
+   * NOTE: Schedules lowered from bitmap schedules leave this bit clear.
+   *       A bitmap's weekdays and times of day are wall clock times on the
+   *       device, so they only keep their meaning read against that clock. */
+  TIME_IN_UTC = 0;
+}
+
+enum ACalRecurrenceRulePattern
+{
+  INVALID = 0;
+  DAILY = 1;
+  WEEKLY = 2;
+  MONTHLY_BY_WEEK_DAY = 3;
+  MONTHLY_BY_DATE = 4;
+  YEARLY_BY_WEEK_DAY = 5;
+  YEARLY_BY_DATE = 6;
+  YEARLY_BY_WEEK = 7;
+  YEARLY_BY_MONTH_WEEK = 8;
+}
+
+/* Defines how the event recurs. */
+message ACalRecurrenceRule
+{
+  /* The duration (in seconds) of each recurring event. */
+  uint32 duration_seconds = 1;
+  /* Specifies the mask of when the event recurs.
+   * The exact meaning depends on the pattern used. */
+  uint32 mask = 2;
+  /* Specifies the recurrence frequency and
+   *  how to interpret the interval, ordinal and mask fields. */
+  ACalRecurrenceRulePattern pattern = 3;
+  /* Specifies the recurrence interval.
+   * The exact meaning depends on the pattern used. */
+  uint32 interval = 4;
+  /* Specifies the ordinal of the recurring event,
+   *  i.e. the event occurs on the nth weekday/week/month.
+   * The exact meaning depends on the pattern used. */
+  int32 ordinal = 5;
+}
+
+message ACalSchedule
+{
+  /* Indicates the inclusive start time of the schedule
+   *  in seconds since Unix epoch. */
+  uint32 start_period = 1;
+  /* Defines the non-inclusive end time of the schedule
+   *  in seconds since Unix epoch. */
+  optional uint32 end_period = 2;
+  /* Defines how the event recurs. */
+  optional ACalRecurrenceRule recurrence_rule = 3;
+  /* Specifies whether the schedule requirements SHALL be interpreted
+   *  according to the Reader local time or UTC time. */
+  uint32 flags = 4;
+}

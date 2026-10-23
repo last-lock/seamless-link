@@ -13,6 +13,18 @@ message MifareClassicKeys
   optional bytes B_key = 2
       [ debug_redact = true ];
 }
+
+// Which of a MIFARE Classic sector's two keys to authenticate a read with.
+// Not a choice of PSA key slot: Key A and Key B live together in one
+// combined 12-byte keystore entry (see shadowstate.proto's
+// DeviceKeyType.DEVICE_KEY_TYPE_MIFARE_CLASSIC), and this only selects which
+// half of that one resolved key firmware's phalMfc_Authenticate call uses.
+enum MifareClassicKeyType
+{
+  MIFARE_CLASSIC_KEY_TYPE_UNSPECIFIED = 0;
+  MIFARE_CLASSIC_KEY_TYPE_A = 1;
+  MIFARE_CLASSIC_KEY_TYPE_B = 2;
+}
 // Keys for an Apple Wallet credential.
 message AppleWallet
 {
@@ -30,7 +42,53 @@ message GoogleWallet
   // DF-Name from transaction
   bytes dfname = 2;
 }
+// One key in a device's key table.
+message ProfileKey
+{
+  // Device-scoped identifier, referenced by lastlock.api.KeyCandidate.key_id.
+  // Ids are unique across the whole table, not per profile, so several
+  // profiles may reference the same entry - a site key shared by two sites is
+  // delivered once and occupies one keystore slot.
+  //
+  // Assign densely from 0; ids must be less than the table's capacity, since
+  // anything larger is a dangling reference.
+  optional uint32 key_id = 1;
+
+  // Raw key material. Length must match the KeyAlgorithm the referencing
+  // profile declares: 8 bytes for DES, 16 for AES-128 and 2K3DES, 24 for
+  // AES-192 and 3K3DES, 32 for AES-256. Must be present - a table entry
+  // carrying no key material is rejected rather than treated as an all-zero
+  // key.
+  //
+  // A key used both to diversify and to authenticate needs two entries, since
+  // the algorithm a key is imported under is fixed for the life of the key.
+  optional bytes key = 2 [ debug_redact = true ];
+}
+
+// Every key a device needs, addressed by key_id rather than by role or by
+// owning profile.
+//
+// This is the authoring shape. Each ProfileKey is individually encrypted
+// under a key-encryption key wrapped for the target device
+// (Configurations.encrypted_keys_kek) and delivered as one element of
+// Configurations.encrypted_keys, so the device decrypts and imports keys one
+// at a time and never holds more than a single key in the clear.
+//
+// Reader-side keystore placement is deliberately absent. The device assigns
+// storage when it imports a key and is the only party that can, since key
+// material reaches it encrypted. Because the table is flat and dense, that
+// assignment is a pure function of key_id and does not shift when a profile is
+// edited.
+message KeyTable
+{
+  repeated ProfileKey keys = 1;
+}
+
 // Keys for a generic DESFire credential profile (LEAF, AN10922 PACS, etc.)
+//
+// Deprecated in favor of KeyTable: keys are a device-level resource, not a
+// per-profile one. Retained so profiles authored against the two-role shape
+// keep working unchanged.
 message GenericDesfire
 {
   // Primary credential authentication key (AES-128, 16 bytes).

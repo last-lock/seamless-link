@@ -6,6 +6,7 @@ package lastlock.api;
 
 import "credential.proto";
 import "audit_types.proto";
+import "semver.proto";
 
 enum CommandType
 {
@@ -16,6 +17,13 @@ enum CommandType
   COMMAND_TYPE_IDENTIFY = 9;
   COMMAND_TYPE_HIBERNATE_MODE = 14;
   COMMAND_TYPE_ALIRO_PUSH_CSR = 15;
+  COMMAND_TYPE_CLEAR_ECLIPSE_PERM_DISABLE = 16;
+  COMMAND_TYPE_CLEAR_ERROR_BITMAP = 17;
+  COMMAND_TYPE_SENSOR_TEST_MODE = 18;
+  COMMAND_TYPE_TRIGGER_PRIMARY_CELL_SAMPLE = 19;
+  COMMAND_TYPE_DEBUG_SET_TIME = 20;
+  COMMAND_TYPE_LOG_CONFIGS = 21;
+  COMMAND_TYPE_BATTERY_REPLACED = 23;
 }
 
 // CommandEvent records a command processed by firmware.
@@ -52,11 +60,16 @@ message Audit
   optional bool writable = 7;
   // The device is now removed from the org
   optional bool removed_from_org = 8;
+  // Device-reported firmware version.
+  // Semver audits use audit_type DeviceLifecycle.
+  optional lastlock.api.semver.SemVer semver = 9;
   // Command event reported by firmware.
   optional CommandEvent command_event = 10;
   // DER-encoded PKCS#10 CSR for the Aliro reader certificate.
   // Present on AliroReaderPublicKeyCaptured audits when firmware can generate it.
   optional bytes aliro_reader_csr = 11;
+  // Latched module error bitmap reported by a HardwareError audit.
+  optional uint32 hardware_error_bitmap = 12;
 }
 
 // DeviceReport is a generic device status report.
@@ -88,6 +101,13 @@ message AliroReaderPublicKeyCapturedReport
   optional bytes reader_certificate_signing_request = 2;
 }
 
+message ConfigurationReceiptReport
+{
+  optional bool synced = 1;
+  repeated string receipt_ids_added = 2;
+  repeated string receipt_ids_removed = 3;
+}
+
 // ReceivedAudit wraps audit-like events with server metadata.
 message ReceivedAudit
 {
@@ -97,6 +117,8 @@ message ReceivedAudit
   optional uint32 when_server = 3;
   // Unique audit identifier, if available.
   optional string audit_id = 4;
+  // Site the device belonged to when this event was recorded.
+  optional string site = 9;
   oneof payload
   {
     // Sent when the server receives report of a credential used
@@ -113,5 +135,7 @@ message ReceivedAudit
 
     // Sent when initial Aliro reader public key is captured.
     AliroReaderPublicKeyCapturedReport aliro_reader_public_key_captured_report = 8;
+
+    ConfigurationReceiptReport configuration_sync_report = 10;
   }
 }

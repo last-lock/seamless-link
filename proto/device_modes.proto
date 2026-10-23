@@ -1,0 +1,134 @@
+syntax = "proto3";
+
+// Link-facing persistent device mode configuration.
+package lastlock.api;
+
+
+// DeviceModes captures the mode selections and mode-related settings for a
+// device. It does not model precedence between categories; schedule selection
+// is represented by org.Configuration.schedule. Settings are grouped by
+// hardware generation so each generation's config can gain fields
+// independently of the others.
+message DeviceModes
+{
+  // Core1000 captures the mode selections and mode-related settings
+  // supported on Core 1000 hardware.
+  message Core1000
+  {
+    reserved 4;
+    reserved "securing";
+
+    optional SimplifiedMode simplified = 1;
+    optional InteractionMode interaction = 2;
+    optional IndirectConnectivityMode indirect_connectivity = 3;
+  }
+
+  oneof hardware
+  {
+    Core1000 core1000 = 1;
+  }
+}
+
+// SimplifiedMode is a UI-facing preset composed from advanced mode selections.
+message SimplifiedMode
+{
+  message Efficient
+  {
+  }
+
+  message SpinToWakeStandard
+  {
+  }
+
+  message Standard
+  {
+  }
+
+  oneof mode
+  {
+    Efficient efficient = 1;
+    SpinToWakeStandard spin_to_wake_standard = 2;
+    Standard standard = 3;
+  }
+}
+
+// InteractionMode controls how the device wakes and responds to physical/user
+// interaction.
+message InteractionMode
+{
+  message Responsive
+  {
+  }
+
+  message SpinToWake
+  {
+  }
+
+  oneof mode
+  {
+    Responsive responsive = 1;
+    SpinToWake spin_to_wake = 2;
+  }
+}
+
+// IndirectConnectivityMode controls background and opportunistic device
+// connectivity behavior.
+message IndirectConnectivityMode
+{
+  message Standard
+  {
+  }
+
+  message Efficient
+  {
+  }
+
+  message UponWake
+  {
+  }
+
+  oneof mode
+  {
+    Standard standard = 1;
+    Efficient efficient = 2;
+    UponWake upon_wake = 3;
+  }
+}
+
+// SecuringMode controls how successful authorization affects the secured state.
+message SecuringMode
+{
+  message AutoRelock
+  {
+    // Auto-relock duration after an authorized access.
+    optional uint32 relock_delay_seconds = 1;
+  }
+
+  message Toggle
+  {
+  }
+
+  message Absolute
+  {
+    optional SecuredState state = 1;
+  }
+
+  message Reader
+  {
+  }
+
+  oneof mode
+  {
+    AutoRelock auto_relock = 1;
+    Toggle toggle = 2;
+    Absolute absolute = 3;
+    Reader reader = 4;
+  }
+}
+
+enum SecuredState
+{
+  SECURED_STATE_UNKNOWN = 0;
+  SECURED_STATE_SECURED = 1;
+  SECURED_STATE_INSECURED = 2;
+}

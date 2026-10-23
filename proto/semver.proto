@@ -5,7 +5,7 @@ package lastlock.api.semver;
 
 
 
-// A semantic versioning structure
+// A semantic versioning structure shared by public API surfaces.
 message SemVer
 {
   // Major version (breaking changes).
