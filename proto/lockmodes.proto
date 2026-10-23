@@ -25,4 +25,11 @@ message LockModes
   // >= 300
   // if unset defaults to 300
   optional uint32 duration_seconds = 2;
+
+  // Hibernate mode state to enter or exit.
+  optional MoveType hibernate = 3;
+
+  // If set, triggers the device's identify action (e.g. LED blink) once.
+  // Stateless -- not an enter/exit mode like install/hibernate.
+  optional bool identify = 4;
 }

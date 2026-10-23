@@ -60,4 +60,34 @@ enum AuditType
 
   // OOB command accepted by firmware.
   Command = 0x14;
+
+  // Device entered cooldown mode.
+  Cooldown = 0x15;
+
+  // [Deprecated] Eclipse permanently disabled itself.
+  EclipsePermDisabled = 0x16;
+
+  // Eclipse is temporarily disabled on the device. The device does this itself.
+  // This is transient and will be cleared on next boot or via OOB or when condition becomes false.
+  // Examples: loop detected, device in critical mode, sensor data being collected, etc...
+  EclipseDisableDevice = 0x17;
+
+  // Eclipse is no longer temporarily disabled on the device. The device can do this itself.
+  // Examples: device exits critical mode, device done w/ sensor data, OOB instructs to clear.
+  // Note: This audit will be omitted if device reenables via a reboot.
+  //       Use the boot info (or lack of) to determine if Eclipse is still temporarily disabled.
+  EclipseReenableDevice = 0x18;
+
+  // A hardware module errored twice and was set in the error bitmap.
+  // Notifies the Server that a hardware module was in an errored state and
+  // is disabled until intentionally cleared.
+  HardwareError = 0x19;
+
+  // Backend LiSa battery analysis event.
+  LiSaAnalysis = 0x1A;
+
+  // The device's battery was replaced. Sent once the device takes a
+  // battery_replaced out-of-band operation; when_device is the replacement
+  // time it carried. Resets the server's battery estimate for the device.
+  BatteryReplaced = 0x1B;
 }
