@@ -1,0 +1,541 @@
+syntax = "proto3";
+
+package lastlock.link.v2;
+
+import "acal.proto";
+import "audit.proto";
+import "audit_types.proto";
+import "credential.proto";
+import "credential_profile.proto";
+import "device_modes.proto";
+import "google/protobuf/empty.proto";
+import "google/protobuf/field_mask.proto";
+import "google/protobuf/timestamp.proto";
+import "org.proto";
+import "semver.proto";
+import "statistics_level.proto";
+
+
+// Devices lists an organization's devices and sets their configuration.
+service Devices
+{
+  // List device summaries, optionally filtered by creation time or explicit IDs.
+  // v1: org.Org.ListDeviceSummaries
+  rpc ListDevices(ListDevicesRequest) returns (DeviceSummaries);
+
+  // Set per-device configuration overrides by device ID.
+  // Applies partial updates; unspecified fields remain unchanged.
+  // v1: org.Org.SetConfiguration
+  rpc SetConfiguration(Configurations) returns (ConfigurationConfirmations);
+}
+
+// Events reads what devices report: credential use, device reports and sync results.
+service Events
+{
+  // List events, optionally filtered by server time and devices.
+  // v1: org.Org.ListAudits
+  rpc ListEvents(ListEventsRequest) returns (ListEventsResponse);
+
+  // Stream events in real time as they are received.
+  // v1: org.Org.StreamAudits
+  rpc StreamEvents(ListEventsRequest) returns (stream Event);
+}
+
+// EventWebhooks pushes events to an HTTPS endpoint as they arrive.
+service EventWebhooks
+{
+  // v1: linkwebhook.AuditWebhookService.UpsertAuditWebhook
+  rpc UpsertEventWebhook(UpsertEventWebhookRequest) returns (EventWebhook);
+
+  // v1: linkwebhook.AuditWebhookService.ListAuditWebhooks
+  rpc ListEventWebhooks(ListEventWebhooksRequest) returns (ListEventWebhooksResponse);
+
+  // v1: linkwebhook.AuditWebhookService.DeleteAuditWebhook
+  rpc DeleteEventWebhook(DeleteEventWebhookRequest) returns (google.protobuf.Empty);
+}
+
+// ListDevicesRequest filters device summaries by creation time or IDs.
+// v1: org.ListDevicesRequest
+message ListDevicesRequest
+{
+  // Include devices created at or after this time.
+  optional google.protobuf.Timestamp created_at_or_after = 1;
+
+  // Exact device IDs to include. Empty means no ID filter.
+  repeated string device_ids = 2;
+}
+
+// DeviceSummaries is a batch of device summaries.
+// v1: org.DeviceSummaries
+message DeviceSummaries
+{
+  // Device summaries in no guaranteed order.
+  repeated DeviceSummary device_summaries = 1;
+}
+
+// DeviceSummary is a lightweight view of a device.
+// v1: org.DeviceSummary
+message DeviceSummary
+{
+  reserved 7;
+  reserved "configuration";
+
+  // Opaque device ID: 32 lowercase hex characters.
+  optional string device_id = 1;
+
+  // Description of the device
+  optional string desc = 2;
+
+  // Time created
+  optional google.protobuf.Timestamp time_created = 3;
+
+  // Assignments currently
+  optional Credentials credentials = 4;
+
+  // Device's PKOC public key
+  optional bytes pkoc_public_key = 5;
+
+  // Device's Ephemeral public key
+  optional bytes device_ephemeral_key = 6;
+
+  // Firmware Version
+  optional lastlock.api.semver.SemVer semver = 8;
+
+  // Last seen timestamp
+  optional google.protobuf.Timestamp last_seen = 9;
+
+  // Last pending operation
+  optional google.protobuf.Timestamp last_operation = 10;
+
+  // Friendly device name shown in client UIs.
+  optional string friendly_name = 11;
+
+  // Last credential profile snapshot sent for this device.
+  optional lastlock.api.DesfireProfileSet credential_profiles = 12;
+
+  // Device Aliro reader public key captured during provisioning.
+  optional bytes aliro_reader_public_key = 13;
+
+  // Device Aliro reader certificate signing request captured during provisioning.
+  optional bytes aliro_reader_csr = 16;
+
+  // Device Aliro reader group ID set via SetAliroConfig.
+  optional bytes aliro_reader_group_id = 14;
+
+  // Whether semver is an assumed factory value or a device-reported value.
+  optional org.VersionSource version_source = 15;
+
+  // The device's configuration set: configurations applied in list order.
+  //
+  // Stored as authored rather than merged down into configuration (7).
+  // Collapsing a set into one Configuration cannot represent more than one
+  // schedule - proto merge keeps only the last - so scheduled configurations
+  // have to stay distinct all the way to the device.
+  optional ConfigSet config_set = 17;
+
+  // ConfigurationReceipts that are still pending
+  repeated ConfigurationReceipt configuration_receipts = 18;
+}
+
+// Credentials wraps a list of credential records.
+// v1: org.Credentials
+message Credentials
+{
+  // Credentials assigned to a device or set.
+  repeated Credential credentials = 1;
+}
+
+// Credential is what is physically presented for authentication to a device.
+// v1: lastlock.api.Credential
+message Credential
+{
+  // The type of credential physically presented for authentication.
+  optional lastlock.api.CredentialType credential_type = 1;
+
+  // The unique data encoded within a credential.
+  // No two credentials may have the same data.
+  optional bytes data = 2;
+
+  oneof schedule
+  {
+    // Bitmap schedule encoding (device-specific format).
+    bytes bitmap_schedule = 3;
+
+    // Structured range schedule.
+    lastlock.api.RangeSchedule range_schedule = 4;
+  }
+
+  // When this credential becomes valid.
+  optional google.protobuf.Timestamp start_time = 5;
+
+  // When this credential stops being valid.
+  optional google.protobuf.Timestamp end_time = 6;
+
+  // Identifier of the declarative DESFire profile that produced this credential
+  // read (CredentialProfile.id). Present on audits, absent for legacy and
+  // non-DESFire reads. This is presentation metadata, not credential identity.
+  optional string credential_profile_id = 7;
+}
+
+// Configuration stores per-device settings pushed from the org.
+// v1: org.Configuration
+message Configuration
+{
+  // ID for this configuration (utf-8 required)
+  optional string id = 18;
+
+  // IANA time zone identifier
+  optional string time_zone = 1;
+
+  // Set statistics level
+  optional lastlock.api.StatisticsLevel statistics_level = 2;
+
+  // Friendly device name shown in client UIs.
+  // Maximum length: 128 characters.
+  optional string friendly_name = 3;
+
+  // Aliro configuration
+  optional AliroConfigForDevice aliro_configuration = 4;
+
+  // Site use for authentication
+  // If missing or empty string, defaults to "default"
+  optional string site = 5;
+
+  // Schedules that control when this configuration is active. The
+  // configuration is active when ANY of them matches - they are a union, not
+  // an intersection.
+  //
+  // Repeated because one ACalSchedule expresses a single window: one time of
+  // day, one duration, one day mask. "Weekdays 09:00-17:00 and Saturday
+  // 10:00-14:00" is two windows and cannot be said with one.
+  repeated lastlock.api.aliro.ACalSchedule schedule = 7;
+
+  // Persistent device mode selections and mode-related settings.
+  optional lastlock.api.DeviceModes modes = 8;
+
+  // Three-byte Terminal Capability Information used to derive/send ECP.
+  optional bytes tci = 9;
+
+  // Whether the device is forbidden from entering hibernate. Defaults to
+  // false, i.e. hibernate is available unless explicitly disabled.
+  optional bool hibernate_disabled = 10;
+
+  // Credentials granted access while this configuration is active.
+  //
+  // These share the configuration's schedule rather than carrying their own:
+  // a scheduled configuration and the credentials valid during it are one
+  // statement, and expressing the window twice invites the two disagreeing.
+  // A credential here carrying its own schedule is rejected. Its start_time
+  // and end_time still apply - those bound the credential's lifetime, not
+  // which hours it opens the door.
+  //
+  // Requires 2.6 firmware, like the rest of the scheduled-configuration path.
+  repeated Credential credentials = 11;
+
+  // MIFARE Classic configurations for this configuration: credential key
+  // material plus which key/sector/block/offset/length to read. Repeated,
+  // each with its own label - a device can hold several MIFARE Classic
+  // configurations at once (see devicestate.proto's MifareClassicDeviceConfig).
+  repeated org.MifareClassicConfigForDevice mifare_classic_configurations = 12;
+
+  // PKOC private key and reader metadata for this device. Singular, unlike
+  // mifare_classic_configurations: a device only ever has one PKOC key at a
+  // time, so there is no label/collection to disambiguate between several.
+  optional org.PKOCConfigForDevice pkoc_configuration = 13;
+
+  // disable the nfc antenna -- configurations may still be sent to the device
+  optional bool disable_nfc = 14;
+
+  // disable the rfid antenna
+  optional bool disable_rfid = 15;
+
+  // Non-settable version
+  optional int64 version = 16;
+
+  optional org.DesfireConfigForDevice desfire_config_for_device = 17;
+
+  // Whether this configuration is best-effort with respect to firmware support.
+  //
+  // When true, a device whose firmware cannot represent this configuration
+  // skips it and the write succeeds. When false or unset, the same situation
+  // fails the write, so a configuration is never silently not applied.
+  optional bool if_supported = 19;
+
+  // Experimental configuration fields. Individual fields may require Link
+  // feature flags before they are accepted.
+  optional org.Configuration.ExperimentalFields experimental_fields = 20;
+}
+
+// AliroConfigForDevice sets Aliro reader configuration for one device.
+// v1: org.AliroConfigForDevice
+message AliroConfigForDevice
+{
+  // Target device ID.
+  optional string device_id = 1;
+
+  // 16-byte reader group ID.
+  optional bytes reader_group_id = 2;
+
+  // DER X.509 reader certificate.
+  optional bytes reader_certificate = 3;
+
+  // P-256 public keys (limit: 1), each 65-byte uncompressed SEC1 encoding: 0x04 || X || Y.
+  repeated bytes issuer_public_keys = 4;
+
+  // DER X.509 Credential Issuer CA certificates trusted for Access Document x5chain verification.
+  repeated bytes credential_issuer_ca = 5;
+
+  // Access document element ids
+  repeated bytes access_document_element_ids = 6;
+
+  // P-256 Reader System Issuer CA public key (65-byte uncompressed SEC1: 0x04 || X || Y)
+  // used by the device to validate the reader certificate.
+  optional bytes reader_system_issuer_ca_pub_key = 7;
+}
+
+// ConfigSet is a group of configurations.
+// v1: org.ConfigSet
+message ConfigSet
+{
+  reserved 1, 3;
+
+  // Configuration entries in this set. Multiple entries allow scheduled
+  // configurations to remain distinct for firmware support. Entries are applied
+  // in list order.
+  repeated Configuration configurations = 2;
+}
+
+// v1: org.ConfigurationReceipt
+message ConfigurationReceipt
+{
+  // The device this receipt is for.
+  optional string device_id = 1;
+
+  optional string receipt_id = 2;
+
+  optional string set_id = 3;
+}
+
+// Configurations applies configurations by device ID.
+// v1: org.Configurations
+message Configurations
+{
+  reserved 2, 4, 1;
+  reserved "configurations";
+
+  message DeleteConfigSetMember
+  {
+    // The device whose config set loses the entry.
+    optional string device_id = 1;
+
+    optional string configuration_id = 2;
+  }
+
+  // Mask of top-level Configuration fields to update dynamically for every
+  // entry in configurations and every configuration entry in config_sets. Paths
+  // are relative to Configuration. When present, fields named in the mask but
+  // omitted from an updated Configuration are cleared.
+  optional google.protobuf.FieldMask field_mask = 3;
+
+  // Configuration sets keyed by device ID. Within each ConfigSet, entries
+  // merge or upsert by Configuration.id.
+  map<string, ConfigSet> config_sets = 5;
+
+  // Config set members to remove from their device's saved config set by
+  // Configuration.id.
+  repeated Configurations.DeleteConfigSetMember delete_config_set_members = 6;
+}
+
+// v1: org.ConfigurationConfirmations
+message ConfigurationConfirmations
+{
+  optional string set_id = 1;
+
+  repeated ConfigurationReceipt receipts = 2;
+}
+
+// ListEventsRequest filters events by server receipt time or devices.
+// v1: org.ListAuditsRequest
+message ListEventsRequest
+{
+  // Inclusive lower bound on server receipt time.
+  optional google.protobuf.Timestamp server_time_after = 1;
+
+  // Exclusive upper bound on server receipt time.
+  optional google.protobuf.Timestamp server_time_before = 2;
+
+  // Limit events to these devices. Empty means all devices.
+  repeated string device_ids = 3;
+}
+
+// ListEventsResponse is a batch of events.
+// v1: org.Audits
+message ListEventsResponse
+{
+  // Events in no guaranteed order.
+  repeated Event events = 1;
+}
+
+// Event is one thing a device reported, with server metadata. The payload
+// is an audit (credential use or device lifecycle), a device report, or a
+// sync result.
+// v1: lastlock.api.ReceivedAudit
+message Event
+{
+  // Device ID that generated this event.
+  optional string device_id = 1;
+
+  // When the server received the event.
+  optional google.protobuf.Timestamp when_server = 3;
+
+  // Unique event identifier, if available.
+  optional string event_id = 4;
+
+  // Site the device belonged to when this event was recorded.
+  optional string site = 9;
+
+  oneof payload
+  {
+    // Sent when the server receives report of a credential used
+    Audit audit = 2;
+
+    // Sent if the server receives a message from the device
+    lastlock.api.DeviceReport device_report = 5;
+
+    // Sent to update client on credential sync
+    lastlock.api.AssignmentSyncReport assignment_sync_report = 6;
+
+    // Sent when the server detects deprecated API usage.
+    lastlock.api.DeprecatedUsageReport deprecated_usage_report = 7;
+
+    // Sent when initial Aliro reader public key is captured.
+    lastlock.api.AliroReaderPublicKeyCapturedReport aliro_reader_public_key_captured_report = 8;
+
+    lastlock.api.ConfigurationReceiptReport configuration_sync_report = 10;
+  }
+}
+
+// Audit captures a credential usage event reported by a device.
+// v1: lastlock.api.Audit
+message Audit
+{
+  // Type of audit event.
+  optional lastlock.api.audittypes.AuditType audit_type = 1;
+
+  // Credential used for this audit, if applicable.
+  optional Credential credential = 2;
+
+  // The device's own clock when the audit happened. Not a reliable UTC
+  // time: the clock can drift, and see inferred_timestamp.
+  optional google.protobuf.Timestamp when_device = 3;
+
+  // if inferred_timestamp is true,
+  // when_device is equal to the previous audit,
+  // and is only known to have occurred after that time
+  optional bool inferred_timestamp = 4;
+
+  // Aliro reader public key captured from initial provisioning.
+  // Present on AliroReaderPublicKeyCaptured audits.
+  optional bytes aliro_reader_public_key = 5;
+
+  // Text description of the audit.
+  optional string description = 6;
+
+  // True when Link determines the device is ready for normal writes.
+  // Writable audits use audit_type DeviceLifecycle.
+  // Hard reset clears the stored device writable state, so a device can emit this again
+  // after returning from reset.
+  optional bool writable = 7;
+
+  // The device is now removed from the org
+  optional bool removed_from_org = 8;
+
+  // Device-reported firmware version.
+  // Semver audits use audit_type DeviceLifecycle.
+  optional lastlock.api.semver.SemVer semver = 9;
+
+  // Command event reported by firmware.
+  optional lastlock.api.CommandEvent command_event = 10;
+
+  // DER-encoded PKCS#10 CSR for the Aliro reader certificate.
+  // Present on AliroReaderPublicKeyCaptured audits when firmware can generate it.
+  optional bytes aliro_reader_csr = 11;
+
+  // Latched module error bitmap reported by a HardwareError audit.
+  optional uint32 hardware_error_bitmap = 12;
+}
+
+// v1: linkwebhook.UpsertAuditWebhookRequest
+message UpsertEventWebhookRequest
+{
+  // If name is empty, Link creates a new auditWebhooks/<uuid>.
+  // If name is present, Link replaces the webhook config and preserves errors.
+  optional EventWebhook webhook = 1;
+}
+
+// v1: linkwebhook.AuditWebhook
+message EventWebhook
+{
+  // Stable webhook resource name, e.g. auditWebhooks/<uuid>.
+  optional string name = 1;
+
+  // Destination URL for HTTP POST delivery.
+  optional string url = 2;
+
+  // Bearer token used as Authorization: Bearer <token>.
+  // Stored encrypted with org data encryption.
+  optional string bearer_token = 3 [debug_redact = true];
+
+  // Event selection query. Same shape as Events.ListEvents.
+  optional ListEventsRequest event_query = 4;
+
+  // Events received up to this time have been delivered. A client may
+  // set it on create or update to control replay or backfill; the worker
+  // advances it only after successful delivery.
+  optional google.protobuf.Timestamp delivered_server_time_through = 5;
+
+  // Server-owned recent delivery failures, newest first.
+  // Upsert ignores this field. List returns at most 5 entries.
+  repeated EventWebhookDeliveryError recent_errors = 6;
+
+  // When the webhook was created.
+  optional google.protobuf.Timestamp created_at = 7;
+
+  // When the webhook config was last updated.
+  optional google.protobuf.Timestamp updated_at = 8;
+}
+
+// v1: linkwebhook.AuditWebhookDeliveryError
+message EventWebhookDeliveryError
+{
+  // When the delivery failed.
+  optional google.protobuf.Timestamp occurred_at = 1;
+
+  optional int32 status_code = 2;
+
+  // Short diagnostic only. Persist and return a capped/truncated message.
+  optional string message = 3;
+
+  optional uint32 failed_attempts = 4;
+
+  // Optional capped response body from the final failed HTTP response.
+  // Only populated for HTTP responses, not network errors.
+  optional string response_body = 5;
+}
+
+// v1: linkwebhook.ListAuditWebhooksRequest
+message ListEventWebhooksRequest
+{
+}
+
+// v1: linkwebhook.ListAuditWebhooksResponse
+message ListEventWebhooksResponse
+{
+  repeated EventWebhook webhooks = 1;
+}
+
+// v1: linkwebhook.DeleteAuditWebhookRequest
+message DeleteEventWebhookRequest
+{
+  optional string name = 1;
+}
